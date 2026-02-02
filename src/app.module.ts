@@ -16,7 +16,7 @@ import { AdminModule } from './admin/admin.module';
       password: process.env.DB_PASSWORD || 'postgres',
       database: process.env.DB_DATABASE || 'university_notes',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: true, // Set to false in production
+      synchronize: process.env.NODE_ENV !== 'production', // Set to false in production
       logging: process.env.NODE_ENV === 'development',
     }),
     AdminModule,

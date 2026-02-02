@@ -191,17 +191,9 @@ export class AdminService {
 
   // Teacher-Subject assignments
   async assignTeacherToSubject(dto: AssignTeacherToSubjectDto): Promise<TeacherSubjectAssignment> {
-    // Verify teacher exists
-    const teacher = await this.findTeacherById(dto.profesorId);
-    if (!teacher) {
-      throw new NotFoundException(`Teacher with ID ${dto.profesorId} not found`);
-    }
-
-    // Verify subject exists
-    const subject = await this.findSubjectById(dto.materiaId);
-    if (!subject) {
-      throw new NotFoundException(`Subject with ID ${dto.materiaId} not found`);
-    }
+    // Verify teacher and subject exist (throws NotFoundException if not found)
+    await this.findTeacherById(dto.profesorId);
+    await this.findSubjectById(dto.materiaId);
 
     // Check for existing active assignment
     const existingAssignment = await this.teacherSubjectAssignmentRepository.findOne({
@@ -242,23 +234,10 @@ export class AdminService {
 
   // Teacher-Group assignments
   async assignTeacherToGroup(dto: AssignTeacherToGroupDto): Promise<TeacherGroupAssignment> {
-    // Verify teacher exists
-    const teacher = await this.findTeacherById(dto.profesorId);
-    if (!teacher) {
-      throw new NotFoundException(`Teacher with ID ${dto.profesorId} not found`);
-    }
-
-    // Verify group exists
-    const group = await this.findGroupById(dto.grupoId);
-    if (!group) {
-      throw new NotFoundException(`Group with ID ${dto.grupoId} not found`);
-    }
-
-    // Verify subject exists
-    const subject = await this.findSubjectById(dto.materiaId);
-    if (!subject) {
-      throw new NotFoundException(`Subject with ID ${dto.materiaId} not found`);
-    }
+    // Verify teacher, group and subject exist (throws NotFoundException if not found)
+    await this.findTeacherById(dto.profesorId);
+    await this.findGroupById(dto.grupoId);
+    await this.findSubjectById(dto.materiaId);
 
     // Check for existing active assignment
     const existingAssignment = await this.teacherGroupAssignmentRepository.findOne({

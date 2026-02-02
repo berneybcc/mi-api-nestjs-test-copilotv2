@@ -20,7 +20,7 @@ export class CreateGroupDto {
 
   @ApiProperty({ description: 'Year', example: 2024 })
   @IsNumber()
-  @Min(2020)
+  @Min(2000)
   @Max(2100)
   año: number;
 }

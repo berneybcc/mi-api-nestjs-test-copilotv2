@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { AdminService } from './admin.service';
 import { Subject } from '../entities/subject.entity';
 import { Teacher } from '../entities/teacher.entity';
@@ -11,11 +10,6 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 
 describe('AdminService', () => {
   let service: AdminService;
-  let subjectRepository: Repository<Subject>;
-  let teacherRepository: Repository<Teacher>;
-  let groupRepository: Repository<Group>;
-  let teacherSubjectAssignmentRepository: Repository<TeacherSubjectAssignment>;
-  let teacherGroupAssignmentRepository: Repository<TeacherGroupAssignment>;
 
   const mockSubjectRepository = {
     create: jest.fn(),
@@ -80,15 +74,6 @@ describe('AdminService', () => {
     }).compile();
 
     service = module.get<AdminService>(AdminService);
-    subjectRepository = module.get<Repository<Subject>>(getRepositoryToken(Subject));
-    teacherRepository = module.get<Repository<Teacher>>(getRepositoryToken(Teacher));
-    groupRepository = module.get<Repository<Group>>(getRepositoryToken(Group));
-    teacherSubjectAssignmentRepository = module.get<Repository<TeacherSubjectAssignment>>(
-      getRepositoryToken(TeacherSubjectAssignment),
-    );
-    teacherGroupAssignmentRepository = module.get<Repository<TeacherGroupAssignment>>(
-      getRepositoryToken(TeacherGroupAssignment),
-    );
 
     // Reset mocks
     jest.clearAllMocks();
