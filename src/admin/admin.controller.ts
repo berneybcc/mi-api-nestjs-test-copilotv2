@@ -9,8 +9,9 @@ import {
   ParseIntPipe,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { CreateSubjectDto } from '../dto/create-subject.dto';
 import { UpdateSubjectDto } from '../dto/update-subject.dto';
@@ -20,9 +21,19 @@ import { CreateGroupDto } from '../dto/create-group.dto';
 import { UpdateGroupDto } from '../dto/update-group.dto';
 import { AssignTeacherToSubjectDto } from '../dto/assign-teacher-to-subject.dto';
 import { AssignTeacherToGroupDto } from '../dto/assign-teacher-to-group.dto';
+import { CreateProfessorDto } from '../professors/dto/create-professor.dto';
+import { CreateStudentDto } from '../students/dto/create-student.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../entities/user.entity';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @ApiTags('admin')
 @Controller('admin')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.ADMIN)
+@ApiBearerAuth()
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
@@ -207,5 +218,52 @@ export class AdminController {
   @ApiResponse({ status: 404, description: 'Assignment not found' })
   async deleteTeacherGroupAssignment(@Param('id', ParseIntPipe) id: number) {
     await this.adminService.deleteTeacherGroupAssignment(id);
+  }
+
+  // New endpoints for academic system
+  @Post('professors')
+  @ApiOperation({ summary: 'Create a new professor' })
+  @ApiResponse({ status: 201, description: 'Professor created successfully' })
+  @ApiResponse({ status: 409, description: 'Professor with this employee ID already exists' })
+  async createProfessor(@Body() createProfessorDto: CreateProfessorDto) {
+    return await this.adminService.createProfessor(createProfessorDto);
+  }
+
+  @Post('students')
+  @ApiOperation({ summary: 'Create a new student' })
+  @ApiResponse({ status: 201, description: 'Student created successfully' })
+  @ApiResponse({ status: 409, description: 'Student with this ID already exists' })
+  async createStudent(@Body() createStudentDto: CreateStudentDto) {
+    return await this.adminService.createStudent(createStudentDto);
+  }
+
+  @Post('students/:id/credits')
+  @ApiOperation({ summary: 'Assign credits to a student' })
+  @ApiResponse({ status: 200, description: 'Credits assigned successfully' })
+  @ApiResponse({ status: 404, description: 'Student not found' })
+  async assignCredits(
+    @Param('id', ParseIntPipe) studentId: number,
+    @Body('amount') amount: number,
+    @CurrentUser() user: any,
+  ) {
+    return await this.adminService.assignCredits(studentId, amount, user.userId);
+  }
+
+  @Put('subjects/:id/professor')
+  @ApiOperation({ summary: 'Assign professor to subject' })
+  @ApiResponse({ status: 200, description: 'Professor assigned successfully' })
+  @ApiResponse({ status: 404, description: 'Subject or Professor not found' })
+  async assignProfessorToSubject(
+    @Param('id', ParseIntPipe) subjectId: number,
+    @Body('professorId') professorId: number,
+  ) {
+    return await this.adminService.assignProfessorToSubject(subjectId, professorId);
+  }
+
+  @Get('reports/credits')
+  @ApiOperation({ summary: 'Get credit usage reports' })
+  @ApiResponse({ status: 200, description: 'Returns credit statistics' })
+  async getCreditReports() {
+    return await this.adminService.getCreditReports();
   }
 }

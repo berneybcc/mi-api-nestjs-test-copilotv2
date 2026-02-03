@@ -1,11 +1,14 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Subject } from '../entities/subject.entity';
 import { Teacher } from '../entities/teacher.entity';
 import { Group } from '../entities/group.entity';
 import { TeacherSubjectAssignment } from '../entities/teacher-subject-assignment.entity';
 import { TeacherGroupAssignment } from '../entities/teacher-group-assignment.entity';
+import { Professor } from '../entities/professor.entity';
+import { Student } from '../entities/student.entity';
+import { CreditTransaction, TransactionType } from '../entities/credit-transaction.entity';
 import { CreateSubjectDto } from '../dto/create-subject.dto';
 import { UpdateSubjectDto } from '../dto/update-subject.dto';
 import { CreateTeacherDto } from '../dto/create-teacher.dto';
@@ -14,6 +17,8 @@ import { CreateGroupDto } from '../dto/create-group.dto';
 import { UpdateGroupDto } from '../dto/update-group.dto';
 import { AssignTeacherToSubjectDto } from '../dto/assign-teacher-to-subject.dto';
 import { AssignTeacherToGroupDto } from '../dto/assign-teacher-to-group.dto';
+import { CreateProfessorDto } from '../professors/dto/create-professor.dto';
+import { CreateStudentDto } from '../students/dto/create-student.dto';
 
 @Injectable()
 export class AdminService {
@@ -28,6 +33,13 @@ export class AdminService {
     private teacherSubjectAssignmentRepository: Repository<TeacherSubjectAssignment>,
     @InjectRepository(TeacherGroupAssignment)
     private teacherGroupAssignmentRepository: Repository<TeacherGroupAssignment>,
+    @InjectRepository(Professor)
+    private professorRepository: Repository<Professor>,
+    @InjectRepository(Student)
+    private studentRepository: Repository<Student>,
+    @InjectRepository(CreditTransaction)
+    private creditTransactionRepository: Repository<CreditTransaction>,
+    private dataSource: DataSource,
   ) {}
 
   // Subject management
@@ -277,5 +289,161 @@ export class AdminService {
 
     assignment.activa = false;
     await this.teacherGroupAssignmentRepository.save(assignment);
+  }
+
+  // Professor management
+  async createProfessor(createProfessorDto: CreateProfessorDto): Promise<Professor> {
+    if (createProfessorDto.employeeId) {
+      const existingProfessor = await this.professorRepository.findOne({
+        where: { employeeId: createProfessorDto.employeeId },
+      });
+
+      if (existingProfessor) {
+        throw new ConflictException('Professor with this employee ID already exists');
+      }
+    }
+
+    const professor = this.professorRepository.create(createProfessorDto);
+    return await this.professorRepository.save(professor);
+  }
+
+  // Student management
+  async createStudent(createStudentDto: CreateStudentDto): Promise<Student> {
+    const existingStudent = await this.studentRepository.findOne({
+      where: { studentId: createStudentDto.studentId },
+    });
+
+    if (existingStudent) {
+      throw new ConflictException('Student with this ID already exists');
+    }
+
+    const defaultCredits = parseFloat(process.env.DEFAULT_STUDENT_CREDITS || '50');
+    const initialCredits = createStudentDto.initialCredits || defaultCredits;
+
+    const student = this.studentRepository.create({
+      ...createStudentDto,
+      availableCredits: initialCredits,
+    });
+
+    const savedStudent = await this.studentRepository.save(student);
+
+    // Create initial credit transaction
+    if (initialCredits > 0) {
+      await this.creditTransactionRepository.save({
+        studentId: savedStudent.id,
+        type: TransactionType.CREDIT,
+        amount: initialCredits,
+        balanceAfter: initialCredits,
+        description: 'Initial credit allocation',
+      });
+    }
+
+    return savedStudent;
+  }
+
+  // Credit management
+  async assignCredits(studentId: number, amount: number, adminUserId: number) {
+    const student = await this.studentRepository.findOne({
+      where: { id: studentId },
+    });
+
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      student.availableCredits = parseFloat(student.availableCredits.toString()) + amount;
+      await queryRunner.manager.save(Student, student);
+
+      const transaction = queryRunner.manager.create(CreditTransaction, {
+        studentId,
+        type: TransactionType.CREDIT,
+        amount,
+        balanceAfter: student.availableCredits,
+        description: 'Admin credit allocation',
+        createdBy: adminUserId,
+      });
+      await queryRunner.manager.save(CreditTransaction, transaction);
+
+      await queryRunner.commitTransaction();
+
+      return {
+        message: 'Credits assigned successfully',
+        studentId,
+        creditsAdded: amount,
+        newBalance: student.availableCredits,
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  // Assign professor to subject
+  async assignProfessorToSubject(subjectId: number, professorId: number) {
+    const subject = await this.subjectRepository.findOne({
+      where: { id: subjectId },
+    });
+
+    if (!subject) {
+      throw new NotFoundException('Subject not found');
+    }
+
+    const professor = await this.professorRepository.findOne({
+      where: { id: professorId },
+    });
+
+    if (!professor) {
+      throw new NotFoundException('Professor not found');
+    }
+
+    subject.professorId = professorId;
+    await this.subjectRepository.save(subject);
+
+    return {
+      message: 'Professor assigned to subject successfully',
+      subject: subject.nombre,
+      professor: `${professor.firstName} ${professor.lastName}`,
+    };
+  }
+
+  // Get credit usage reports
+  async getCreditReports() {
+    const students = await this.studentRepository.find({
+      relations: ['creditTransactions'],
+    });
+
+    const totalCreditsAllocated = students.reduce((sum, student) => {
+      const allocations = student.creditTransactions
+        .filter((t) => t.type === TransactionType.CREDIT)
+        .reduce((s, t) => s + parseFloat(t.amount.toString()), 0);
+      return sum + allocations;
+    }, 0);
+
+    const totalCreditsUsed = students.reduce((sum, student) => {
+      const debits = student.creditTransactions
+        .filter((t) => t.type === TransactionType.DEBIT)
+        .reduce((s, t) => s + parseFloat(t.amount.toString()), 0);
+      return sum + debits;
+    }, 0);
+
+    const totalCreditsAvailable = students.reduce(
+      (sum, student) => sum + parseFloat(student.availableCredits.toString()),
+      0,
+    );
+
+    return {
+      totalStudents: students.length,
+      totalCreditsAllocated,
+      totalCreditsUsed,
+      totalCreditsAvailable,
+      utilizationRate: totalCreditsAllocated > 0 ? (totalCreditsUsed / totalCreditsAllocated) * 100 : 0,
+    };
   }
 }

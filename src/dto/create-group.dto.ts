@@ -1,4 +1,4 @@
-import { IsString, IsNumber, MinLength, Min, Max } from 'class-validator';
+import { IsString, IsNumber, MinLength, Min, Max, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateGroupDto {
@@ -23,4 +23,14 @@ export class CreateGroupDto {
   @Min(2000)
   @Max(2100)
   año: number;
+
+  @ApiProperty({ description: 'Subject ID', example: 1 })
+  @IsNumber()
+  subjectId: number;
+
+  @ApiProperty({ description: 'Maximum students', example: 30, required: false })
+  @IsNumber()
+  @IsOptional()
+  @Min(1)
+  maxStudents?: number;
 }

@@ -2,6 +2,9 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminModule } from './admin/admin.module';
+import { AuthModule } from './auth/auth.module';
+import { StudentsModule } from './students/students.module';
+import { ProfessorsModule } from './professors/professors.module';
 
 @Module({
   imports: [
@@ -19,7 +22,10 @@ import { AdminModule } from './admin/admin.module';
       synchronize: process.env.NODE_ENV !== 'production', // Set to false in production
       logging: process.env.NODE_ENV === 'development',
     }),
+    AuthModule,
     AdminModule,
+    StudentsModule,
+    ProfessorsModule,
   ],
 })
 export class AppModule {}

@@ -7,6 +7,10 @@ import { Teacher } from '../entities/teacher.entity';
 import { Group } from '../entities/group.entity';
 import { TeacherSubjectAssignment } from '../entities/teacher-subject-assignment.entity';
 import { TeacherGroupAssignment } from '../entities/teacher-group-assignment.entity';
+import { Professor } from '../entities/professor.entity';
+import { Student } from '../entities/student.entity';
+import { CreditTransaction } from '../entities/credit-transaction.entity';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
@@ -16,7 +20,11 @@ import { TeacherGroupAssignment } from '../entities/teacher-group-assignment.ent
       Group,
       TeacherSubjectAssignment,
       TeacherGroupAssignment,
+      Professor,
+      Student,
+      CreditTransaction,
     ]),
+    AuthModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

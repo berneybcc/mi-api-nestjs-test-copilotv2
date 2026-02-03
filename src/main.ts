@@ -18,9 +18,13 @@ async function bootstrap() {
   // Swagger configuration
   const config = new DocumentBuilder()
     .setTitle('University Grade Administration API')
-    .setDescription('API for managing university subjects, teachers, groups and assignments')
-    .setVersion('1.0')
-    .addTag('admin')
+    .setDescription('API for managing university subjects, teachers, groups, assignments, students, professors, grades, and credits')
+    .setVersion('2.0')
+    .addTag('auth', 'Authentication endpoints')
+    .addTag('admin', 'Administrative operations')
+    .addTag('students', 'Student operations')
+    .addTag('professors', 'Professor operations')
+    .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
